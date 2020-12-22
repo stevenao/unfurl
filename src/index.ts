@@ -3,7 +3,7 @@ if (process.env.NODE_ENV !== 'test') {
   require('source-map-support').install()
 }
 
-import { parse as parseUrl, resolve as resolveUrl } from 'url'
+import { parse as parseUrl, resolve as resolveUrl, URL } from 'url'
 import { Parser } from 'htmlparser2'
 import fetch from 'cross-fetch'
 import UnexpectedError from './unexpectedError'
@@ -96,13 +96,21 @@ async function getPage (url: string, opts: Opts) {
   return buf.toString()
 }
 
+function enforceHttps(url) {
+  const anURL = new URL(url);
+  if (anURL.protocol === 'http:') {
+    anURL.protocol = 'https:';
+  }
+  return anURL.href;
+}
+
 function getRemoteMetadata (ctx, opts) {
   return async function (metadata) {
     if (!ctx._oembed) {
       return metadata
     }
 
-    const target = resolveUrl(ctx.url, he_decode(ctx._oembed.href))
+    const target = resolveUrl(ctx.url, enforceHttps(he_decode(ctx._oembed.href)))
 
     const res = await fetch(target)
     const contentType = res.headers.get('Content-Type')
@@ -267,8 +275,8 @@ function getMetadata (ctx, opts: Opts) {
             this._title = ''
           }
 
-          // We want to parse as little as possible so finish once we see </head>
-          if (tag === 'head') {
+          // We want to parse as little as possible so finish once we see </head> and we have every we need
+          if (tag === 'head' && ctx._oembed) {
             parser.reset()
           }
         }
